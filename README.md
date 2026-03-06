@@ -10,6 +10,7 @@
 
 - 主要解决钉钉发送的文件和图片消息，OpenClaw 无法正常接收的问题。
 - 对于 PDF 的识别，建议在 OpenClaw 中配置 `qwen3.5-plus` 模型，以获得更稳定的解析效果。
+- 本插件与旧版 `dingtalk-connector` 不能并存安装。安装本版本前，请先删除旧版插件目录，再进行安装。
 
 ## 快速导航
 
@@ -55,6 +56,14 @@ graph LR
 ## 安装
 
 ### 1. 安装插件
+
+> **⚠️ 重要：不能与旧版并存**
+>
+> 本插件与已安装的旧版 `dingtalk-connector` 不能并存使用。如果用户机器上已经安装过旧版，请先删除旧版目录，再安装本版本：
+>
+> ```bash
+> rm -rf ~/.openclaw/extensions/dingtalk-connector
+> ```
 
 ```bash
 # 远程安装
