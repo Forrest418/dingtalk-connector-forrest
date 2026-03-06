@@ -2,6 +2,20 @@
 
 以下提供两种方案连接到 [OpenClaw](https://openclaw.ai) Gateway，分别是钉钉机器人和钉钉 DEAP Agent。
 
+## 项目说明
+
+本仓库不是全新从零实现，而是基于原始 `dingtalk-moltbot-connector` / 已安装的 `~/.openclaw/extensions/dingtalk-connector` 做的整理和修订版本。
+
+当前仓库已经明确完成的修订如下：
+
+- 将原本仅存在于本机扩展目录中的插件代码整理为独立 Git 仓库，便于版本管理、协作和发布。
+- 清理运行时依赖目录，不再把 `node_modules` 一并纳入仓库，并补充 `.gitignore`。
+- 修正仓库元数据，将 `package.json` 中的 `repository`、`homepage`、`bugs` 指向当前仓库。
+- 修正文档中的安装、克隆、升级和 Releases 链接，避免继续指向旧仓库地址。
+- 修正文档中的本地开发目录名，保证 README 里的命令可以直接对应当前仓库名。
+
+如果后续还要继续补充“相对原始版本的代码级差异”，建议在此章节继续追加，并保持按问题/修订项逐条记录。
+
 ## 快速导航
 
 | 方案 | 名称 | 详情 |
