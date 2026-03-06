@@ -49,14 +49,14 @@ graph LR
 
 ```bash
 # 远程安装
-openclaw plugins install https://github.com/Forrest418/dingtalk-connector.git
+openclaw plugins install https://github.com/Forrest418/dingtalk-connector-forrest.git
 
 # 升级插件
 openclaw plugins update dingtalk-connector
 
 # 或本地开发模式
-git clone https://github.com/Forrest418/dingtalk-connector.git
-cd dingtalk-connector
+git clone https://github.com/Forrest418/dingtalk-connector-forrest.git
+cd dingtalk-connector-forrest
 npm install
 openclaw plugins install -l .
 ```
@@ -197,7 +197,7 @@ dingtalk-connector/
 rm -rf ~/.clawdbot/extensions/dingtalk-connector
 rm -rf ~/.moltbot/extensions/dingtalk-connector
 rm -rf ~/.openclaw/extensions/dingtalk-connector
-openclaw plugins install https://github.com/Forrest418/dingtalk-connector.git
+openclaw plugins install https://github.com/Forrest418/dingtalk-connector-forrest.git
 ```
 
 ### Q: 图片不显示
@@ -284,7 +284,7 @@ openclaw gateway start
 
 ### 第三步：启动 Connector 客户端
 
-1. 从 [Releases](https://github.com/Forrest418/dingtalk-connector/releases) 页面下载适配您操作系统的安装包
+1. 从 [Releases](https://github.com/Forrest418/dingtalk-connector-forrest/releases) 页面下载适配您操作系统的安装包
 2. 解压并运行 Connector（以 macOS 为例）：
 
    ```bash
