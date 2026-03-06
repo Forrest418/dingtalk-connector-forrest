@@ -139,6 +139,38 @@ function getConfig(cfg: ClawdbotConfig) {
   return (cfg?.channels as any)?.['dingtalk-connector'] || {};
 }
 
+const GatewayErrorCodes = {
+  INVALID_REQUEST: 'INVALID_REQUEST',
+  UNAVAILABLE: 'UNAVAILABLE',
+} as const;
+
+function createGatewayError(
+  code: (typeof GatewayErrorCodes)[keyof typeof GatewayErrorCodes],
+  message: string,
+  details?: unknown,
+) {
+  return details === undefined ? { code, message } : { code, message, details };
+}
+
+function respondGatewayError(
+  respond: (ok: boolean, payload?: unknown, error?: unknown) => void,
+  code: (typeof GatewayErrorCodes)[keyof typeof GatewayErrorCodes],
+  message: string,
+  details?: unknown,
+) {
+  return respond(false, undefined, createGatewayError(code, message, details));
+}
+
+function getEffectiveCfg(cfg?: ClawdbotConfig, context?: any): ClawdbotConfig {
+  if (cfg && typeof cfg === 'object') return cfg;
+  if (context?.cfg && typeof context.cfg === 'object') return context.cfg as ClawdbotConfig;
+  try {
+    return getRuntime().config.loadConfig() as ClawdbotConfig;
+  } catch {
+    return {} as ClawdbotConfig;
+  }
+}
+
 function isConfigured(cfg: ClawdbotConfig): boolean {
   const config = getConfig(cfg);
   return Boolean(config.clientId && config.clientSecret);
@@ -2797,10 +2829,11 @@ const dingtalkPlugin = {
   },
   status: {
     defaultRuntime: { accountId: 'default', running: false, lastStartAt: null, lastStopAt: null, lastError: null },
-    probe: async ({ cfg }: any) => {
-      if (!isConfigured(cfg)) return { ok: false, error: 'Not configured' };
+    probe: async ({ cfg, context }: any) => {
+      const effectiveCfg = getEffectiveCfg(cfg, context);
+      if (!isConfigured(effectiveCfg)) return { ok: false, error: 'Not configured' };
       try {
-        const config = getConfig(cfg);
+        const config = getConfig(effectiveCfg);
         await getAccessToken(config);
         return { ok: true, details: { clientId: config.clientId } };
       } catch (error: any) {
@@ -2834,13 +2867,13 @@ const plugin = {
 
     // ===== Gateway Methods =====
 
-    api.registerGatewayMethod('dingtalk-connector.status', async ({ respond, cfg }: any) => {
-      const result = await dingtalkPlugin.status.probe({ cfg });
+    api.registerGatewayMethod('dingtalk-connector.status', async ({ respond, cfg, context }: any) => {
+      const result = await dingtalkPlugin.status.probe({ cfg, context });
       respond(true, result);
     });
 
-    api.registerGatewayMethod('dingtalk-connector.probe', async ({ respond, cfg }: any) => {
-      const result = await dingtalkPlugin.status.probe({ cfg });
+    api.registerGatewayMethod('dingtalk-connector.probe', async ({ respond, cfg, context }: any) => {
+      const result = await dingtalkPlugin.status.probe({ cfg, context });
       respond(result.ok, result);
     });
 
@@ -2855,21 +2888,21 @@ const plugin = {
      *   - fallbackToNormal?: AI Card 失败时是否降级到普通消息（默认 true）
      *   - accountId?: 使用的账号 ID（默认 default）
      */
-    api.registerGatewayMethod('dingtalk-connector.sendToUser', async ({ respond, cfg, params, log }: any) => {
+    api.registerGatewayMethod('dingtalk-connector.sendToUser', async ({ respond, cfg, context, params, log }: any) => {
       const { userId, userIds, content, msgType, title, useAICard, fallbackToNormal, accountId } = params || {};
-      const account = dingtalkPlugin.config.resolveAccount(cfg, accountId);
+      const account = dingtalkPlugin.config.resolveAccount(getEffectiveCfg(cfg, context), accountId);
 
       if (!account.config?.clientId) {
-        return respond(false, { error: 'DingTalk not configured' });
+        return respondGatewayError(respond, GatewayErrorCodes.UNAVAILABLE, 'DingTalk not configured');
       }
 
       const targetUserIds = userIds || (userId ? [userId] : []);
       if (targetUserIds.length === 0) {
-        return respond(false, { error: 'userId or userIds is required' });
+        return respondGatewayError(respond, GatewayErrorCodes.INVALID_REQUEST, 'userId or userIds is required');
       }
 
       if (!content) {
-        return respond(false, { error: 'content is required' });
+        return respondGatewayError(respond, GatewayErrorCodes.INVALID_REQUEST, 'content is required');
       }
 
       const result = await sendToUser(account.config, targetUserIds, content, {
@@ -2879,7 +2912,10 @@ const plugin = {
         useAICard: useAICard !== false,  // 默认 true
         fallbackToNormal: fallbackToNormal !== false,  // 默认 true
       });
-      respond(result.ok, result);
+      if (!result.ok) {
+        return respondGatewayError(respond, GatewayErrorCodes.UNAVAILABLE, result.error || 'Failed to send message', result);
+      }
+      respond(true, result);
     });
 
     /**
@@ -2893,20 +2929,20 @@ const plugin = {
      *   - fallbackToNormal?: AI Card 失败时是否降级到普通消息（默认 true）
      *   - accountId?: 使用的账号 ID（默认 default）
      */
-    api.registerGatewayMethod('dingtalk-connector.sendToGroup', async ({ respond, cfg, params, log }: any) => {
+    api.registerGatewayMethod('dingtalk-connector.sendToGroup', async ({ respond, cfg, context, params, log }: any) => {
       const { openConversationId, content, msgType, title, useAICard, fallbackToNormal, accountId } = params || {};
-      const account = dingtalkPlugin.config.resolveAccount(cfg, accountId);
+      const account = dingtalkPlugin.config.resolveAccount(getEffectiveCfg(cfg, context), accountId);
 
       if (!account.config?.clientId) {
-        return respond(false, { error: 'DingTalk not configured' });
+        return respondGatewayError(respond, GatewayErrorCodes.UNAVAILABLE, 'DingTalk not configured');
       }
 
       if (!openConversationId) {
-        return respond(false, { error: 'openConversationId is required' });
+        return respondGatewayError(respond, GatewayErrorCodes.INVALID_REQUEST, 'openConversationId is required');
       }
 
       if (!content) {
-        return respond(false, { error: 'content is required' });
+        return respondGatewayError(respond, GatewayErrorCodes.INVALID_REQUEST, 'content is required');
       }
 
       const result = await sendToGroup(account.config, openConversationId, content, {
@@ -2916,7 +2952,10 @@ const plugin = {
         useAICard: useAICard !== false,  // 默认 true
         fallbackToNormal: fallbackToNormal !== false,
       });
-      respond(result.ok, result);
+      if (!result.ok) {
+        return respondGatewayError(respond, GatewayErrorCodes.UNAVAILABLE, result.error || 'Failed to send message', result);
+      }
+      respond(true, result);
     });
 
     /**
@@ -2930,23 +2969,27 @@ const plugin = {
      *   - fallbackToNormal?: AI Card 失败时是否降级到普通消息（默认 true）
      *   - accountId?: 账号 ID
      */
-    api.registerGatewayMethod('dingtalk-connector.send', async ({ respond, cfg, params, log }: any) => {
+    api.registerGatewayMethod('dingtalk-connector.send', async ({ respond, cfg, context, params, log }: any) => {
       const { target, content, message, msgType, title, useAICard, fallbackToNormal, accountId } = params || {};
       const actualContent = content || message;  // 兼容 message 字段
-      const account = dingtalkPlugin.config.resolveAccount(cfg, accountId);
+      const account = dingtalkPlugin.config.resolveAccount(getEffectiveCfg(cfg, context), accountId);
 
       log?.info?.(`[DingTalk][Send] 收到请求: params=${JSON.stringify(params)}`);
 
       if (!account.config?.clientId) {
-        return respond(false, { error: 'DingTalk not configured' });
+        return respondGatewayError(respond, GatewayErrorCodes.UNAVAILABLE, 'DingTalk not configured');
       }
 
       if (!target) {
-        return respond(false, { error: 'target is required (format: user:<userId> or group:<openConversationId>)' });
+        return respondGatewayError(
+          respond,
+          GatewayErrorCodes.INVALID_REQUEST,
+          'target is required (format: user:<userId> or group:<openConversationId>)',
+        );
       }
 
       if (!actualContent) {
-        return respond(false, { error: 'content is required' });
+        return respondGatewayError(respond, GatewayErrorCodes.INVALID_REQUEST, 'content is required');
       }
 
       const targetStr = String(target);
@@ -2970,7 +3013,10 @@ const plugin = {
         useAICard: useAICard !== false,  // 默认 true
         fallbackToNormal: fallbackToNormal !== false,
       });
-      respond(result.ok, result);
+      if (!result.ok) {
+        return respondGatewayError(respond, GatewayErrorCodes.UNAVAILABLE, result.error || 'Failed to send message', result);
+      }
+      respond(true, result);
     });
 
     api.logger?.info('[DingTalk] 插件已注册（支持主动发送 AI Card 消息）');
